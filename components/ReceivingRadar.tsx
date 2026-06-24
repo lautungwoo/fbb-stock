@@ -42,7 +42,8 @@ export default function ReceivingRadar({ storeName, onReceiveSuccess }: Receivin
       let query = supabase
         .from('inventory_transfers')
         .select('*')
-        .eq('status', viewMode);
+        .eq('status', viewMode)
+        .is('cancelled_at', null);
 
       if (storeName) {
         query = query.eq('to_location', storeName);
@@ -197,7 +198,7 @@ export default function ReceivingRadar({ storeName, onReceiveSuccess }: Receivin
           onPress: async () => {
             setLoading(true);
             try {
-              const { error } = await supabase.from('inventory_transfers').delete().eq('id', id);
+              const { error } = await supabase.from('inventory_transfers').update({ cancelled_at: new Date().toISOString() }).eq('id', id);
               if (error) throw error;
               fetchTransitTransfers();
             } catch (err: any) {

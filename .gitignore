@@ -18,3 +18,18 @@ npm-debug.*
 yarn-debug.*
 yarn-error.*
 .vercel
+
+# dev scratch (contains hardcoded credentials — do not commit)
+query_schema.js
+*.scratch.*
+scratch_*.js
+
+# agent artifacts (don't commit)
+.agents/
+agents/
+claude-code-sessions-review/
+claude-session-sync-review/
+ANTIGRAVITY_TASKS*.md
+SECURITY_AUDIT_*.md
+graphify-out/
+skills-lock.json

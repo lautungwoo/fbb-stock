@@ -32,6 +32,7 @@ export default function DispatchComponent({ onDispatchSuccess }: DispatchCompone
         .from('inventory_transfers')
         .select('*')
         .eq('status', 'pending')
+        .is('cancelled_at', null)
         .order('created_at', { ascending: false });
 
       if (error) throw error;

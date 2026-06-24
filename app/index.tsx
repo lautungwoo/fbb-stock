@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, StatusBar, SafeAreaView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../utils/supabase';
-import DispatchComponent from '../components/DispatchComponent';
-import ReceivingRadar from '../components/ReceivingRadar';
 import InventoryDashboard from '../components/InventoryDashboard';
 import BlindStocktake from '../components/BlindStocktake';
 import ProductCatalog from '../components/ProductCatalog';
@@ -23,6 +22,7 @@ export type RoleContext = {
 };
 
 export default function IndexScreen() {
+  const { user, signOut } = useAuth();
   const [activeTab, setActiveTab] = useState<'all' | 'packing' | 'dashboard' | 'stocktake' | 'catalog' | 'order' | 'fulfill' | 'pos' | 'wastage' | 'production'>('dashboard');
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   
@@ -34,6 +34,21 @@ export default function IndexScreen() {
   useEffect(() => {
     fetchStores();
   }, []);
+
+  // Sync role based on user metadata
+  useEffect(() => {
+    if (user && user.user_metadata) {
+      const { role, store_id } = user.user_metadata;
+      if (role === 'store_manager') {
+        const store = stores.find(s => s.id === store_id) || { id: store_id || 'unknown', name: 'Unknown Store' };
+        setCurrentRole({ type: 'Store Manager', store });
+      } else if (role === 'hq_admin') {
+        setCurrentRole({ type: 'HQ Admin' });
+      } else {
+        console.warn('Unknown or missing user_metadata.role. Fallback to Dev Mode role selector.');
+      }
+    }
+  }, [user, stores]);
 
   const fetchStores = async () => {
     try {
@@ -66,37 +81,48 @@ export default function IndexScreen() {
 
         {/* Dev Mode Role Toggle */}
         <View className="relative z-50">
-          <TouchableOpacity 
-            className="flex-row items-center gap-2 bg-slate-900 border border-slate-700 px-4 py-2 rounded-xl"
-            onPress={() => setShowRoleDropdown(!showRoleDropdown)}
-          >
-            <Ionicons name="person-circle" size={18} color="#818cf8" />
-            <Text className="text-white font-bold text-xs">
-              {currentRole.type === 'HQ Admin' ? 'HQ Admin' : `${currentRole.store?.name} Manager`}
-            </Text>
-            <Ionicons name="chevron-down" size={14} color="#94a3b8" />
-          </TouchableOpacity>
-
-          {showRoleDropdown && (
-            <View className="absolute top-full mt-2 w-48 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl overflow-hidden py-1">
-              <Text className="text-slate-500 text-[10px] font-bold uppercase px-3 py-1 mt-1">HQ Roles</Text>
+          {__DEV__ || !user?.user_metadata?.role ? (
+            <>
               <TouchableOpacity 
-                className="px-4 py-3 hover:bg-slate-700 border-b border-slate-700/50"
-                onPress={() => { setCurrentRole({ type: 'HQ Admin' }); setShowRoleDropdown(false); setActiveTab('fulfill'); }}
+                className="flex-row items-center gap-2 bg-slate-900 border border-slate-700 px-4 py-2 rounded-xl"
+                onPress={() => setShowRoleDropdown(!showRoleDropdown)}
               >
-                <Text className="text-white font-bold text-xs">HQ Admin</Text>
+                <Ionicons name="person-circle" size={18} color="#818cf8" />
+                <Text className="text-white font-bold text-xs">
+                  {currentRole.type === 'HQ Admin' ? 'HQ Admin' : `${currentRole.store?.name} Manager`}
+                </Text>
+                <Ionicons name="chevron-down" size={14} color="#94a3b8" />
               </TouchableOpacity>
-              
-              <Text className="text-slate-500 text-[10px] font-bold uppercase px-3 py-1 mt-2">Franchisee & Pop-up Roles</Text>
-              {stores.map(store => (
-                <TouchableOpacity 
-                  key={store.id}
-                  className="px-4 py-3 hover:bg-slate-700 border-b border-slate-700/50"
-                  onPress={() => { setCurrentRole({ type: 'Store Manager', store }); setShowRoleDropdown(false); setActiveTab('pos'); }}
-                >
-                  <Text className="text-white font-bold text-xs">{store.name} Manager</Text>
-                </TouchableOpacity>
-              ))}
+
+              {showRoleDropdown && (
+                <View className="absolute top-full mt-2 w-48 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl overflow-hidden py-1">
+                  <Text className="text-slate-500 text-[10px] font-bold uppercase px-3 py-1 mt-1">HQ Roles</Text>
+                  <TouchableOpacity 
+                    className="px-4 py-3 hover:bg-slate-700 border-b border-slate-700/50"
+                    onPress={() => { setCurrentRole({ type: 'HQ Admin' }); setShowRoleDropdown(false); setActiveTab('fulfill'); }}
+                  >
+                    <Text className="text-white font-bold text-xs">HQ Admin</Text>
+                  </TouchableOpacity>
+                  
+                  <Text className="text-slate-500 text-[10px] font-bold uppercase px-3 py-1 mt-2">Franchisee & Pop-up Roles</Text>
+                  {stores.map(store => (
+                    <TouchableOpacity 
+                      key={store.id}
+                      className="px-4 py-3 hover:bg-slate-700 border-b border-slate-700/50"
+                      onPress={() => { setCurrentRole({ type: 'Store Manager', store }); setShowRoleDropdown(false); setActiveTab('pos'); }}
+                    >
+                      <Text className="text-white font-bold text-xs">{store.name} Manager</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </>
+          ) : (
+            <View className="flex-row items-center gap-2 bg-slate-900 border border-slate-700 px-4 py-2 rounded-xl">
+              <Ionicons name="person-circle" size={18} color="#818cf8" />
+              <Text className="text-white font-bold text-xs">
+                {currentRole.type === 'HQ Admin' ? 'HQ Admin' : `${currentRole.store?.name} Manager`}
+              </Text>
             </View>
           )}
         </View>
@@ -179,13 +205,22 @@ export default function IndexScreen() {
           )}
         </View>
 
-        <TouchableOpacity 
-          className="bg-slate-800 px-4 py-2 rounded-xl border border-slate-700/50 hover:bg-slate-700 active:bg-slate-900 flex-row items-center gap-2"
-          onPress={handleRefreshAll}
-        >
-          <Ionicons name="refresh-circle-outline" size={18} color="#94a3b8" />
-          <Text className="text-slate-300 text-xs font-bold">Sync Dashboard</Text>
-        </TouchableOpacity>
+        <View className="flex-row items-center gap-3">
+          <TouchableOpacity 
+            className="bg-slate-800 px-4 py-2 rounded-xl border border-slate-700/50 hover:bg-slate-700 active:bg-slate-900 flex-row items-center gap-2"
+            onPress={handleRefreshAll}
+          >
+            <Ionicons name="refresh-circle-outline" size={18} color="#94a3b8" />
+            <Text className="text-slate-300 text-xs font-bold">Sync Dashboard</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            className="bg-red-900/30 px-4 py-2 rounded-xl border border-red-700/50 hover:bg-red-800/40 active:bg-red-900/50 flex-row items-center gap-2"
+            onPress={signOut}
+          >
+            <Ionicons name="log-out-outline" size={18} color="#fca5a5" />
+            <Text className="text-red-300 text-xs font-bold">Sign out</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Main Dashboard Layout */}

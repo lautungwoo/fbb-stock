@@ -67,45 +67,17 @@ export default function MarketPacking() {
     setIsPacking(true);
     
     try {
-      for (const item of packList) {
-        const qty = parseInt(item.qty, 10);
-        
-        // 1. Deduct from HQ
-        const { error: deductErr } = await supabase.rpc('deduct_inventory_v2', {
-          p_product_id: item.product.id,
-          p_location_name: sourceLocation,
-          p_quantity: qty,
-          p_is_strict_stock: true
-        });
-        if (deductErr) throw deductErr;
+      const p_items = packList.map(item => ({
+        product_id: item.product.id,
+        qty: parseInt(item.qty, 10)
+      }));
 
-        // 2. Add to Pop-up Market (We check if row exists, if not insert, else update)
-        // A safer way is to fetch existing first, or rely on an upsert. 
-        // For simplicity using client-side check:
-        const { data: existingDest } = await supabase
-          .from('inventory_levels')
-          .select('id, stock_quantity')
-          .eq('product_id', item.product.id)
-          .eq('location_name', destinationLocation)
-          .single();
+      const { error } = await supabase.rpc('transfer_to_popup', {
+        p_items,
+        p_to_location: destinationLocation
+      });
 
-        if (existingDest) {
-          const { error: updateErr } = await supabase
-            .from('inventory_levels')
-            .update({ stock_quantity: existingDest.stock_quantity + qty, last_updated_at: new Date().toISOString() })
-            .eq('id', existingDest.id);
-          if (updateErr) throw updateErr;
-        } else {
-          const { error: insertErr } = await supabase
-            .from('inventory_levels')
-            .insert([{
-              product_id: item.product.id,
-              location_name: destinationLocation,
-              stock_quantity: qty
-            }]);
-          if (insertErr) throw insertErr;
-        }
-      }
+      if (error) throw error;
 
       Alert.alert("Success", "Stock has been securely transferred to Pop-up Market.");
       setPackList([]);
