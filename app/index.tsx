@@ -28,7 +28,9 @@ export default function IndexScreen() {
   
   // Dev Mode Context
   const [stores, setStores] = useState<{id: string; name: string}[]>([]);
-  const [currentRole, setCurrentRole] = useState<RoleContext>({ type: 'HQ Admin' });
+  const [currentRole, setCurrentRole] = useState<RoleContext | null>(
+    __DEV__ ? { type: 'HQ Admin' } : null
+  );
   const [showRoleDropdown, setShowRoleDropdown] = useState(false);
 
   useEffect(() => {
@@ -37,15 +39,15 @@ export default function IndexScreen() {
 
   // Sync role based on user metadata
   useEffect(() => {
-    if (user && user.user_metadata) {
-      const { role, store_id } = user.user_metadata;
+    if (user && user.app_metadata) {
+      const { role, store_id } = user.app_metadata;
       if (role === 'store_manager') {
         const store = stores.find(s => s.id === store_id) || { id: store_id || 'unknown', name: 'Unknown Store' };
         setCurrentRole({ type: 'Store Manager', store });
       } else if (role === 'hq_admin') {
         setCurrentRole({ type: 'HQ Admin' });
       } else {
-        console.warn('Unknown or missing user_metadata.role. Fallback to Dev Mode role selector.');
+        console.warn('Unknown or missing app_metadata.role. Fallback to Dev Mode role selector.');
       }
     }
   }, [user, stores]);
@@ -62,6 +64,16 @@ export default function IndexScreen() {
   const handleRefreshAll = () => {
     setRefreshTrigger(prev => prev + 1);
   };
+
+  if (user && !currentRole) {
+    return (
+      <SafeAreaView className="flex-1 bg-[#0b0f19] items-center justify-center">
+        <ActivityIndicator size="large" color="#818cf8" />
+        <Text className="text-slate-400 mt-4">载入角色配置中...</Text>
+        <Text className="text-slate-600 text-xs mt-2">如长时间无反应，请联系管理员配置 app_metadata.role</Text>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView className="flex-1 bg-[#0b0f19] text-white">
@@ -81,7 +93,7 @@ export default function IndexScreen() {
 
         {/* Dev Mode Role Toggle */}
         <View className="relative z-50">
-          {__DEV__ || !user?.user_metadata?.role ? (
+          {__DEV__ ? (
             <>
               <TouchableOpacity 
                 className="flex-row items-center gap-2 bg-slate-900 border border-slate-700 px-4 py-2 rounded-xl"
@@ -89,7 +101,7 @@ export default function IndexScreen() {
               >
                 <Ionicons name="person-circle" size={18} color="#818cf8" />
                 <Text className="text-white font-bold text-xs">
-                  {currentRole.type === 'HQ Admin' ? 'HQ Admin' : `${currentRole.store?.name} Manager`}
+                  {currentRole?.type === 'HQ Admin' ? 'HQ Admin' : `${currentRole?.store?.name} Manager`}
                 </Text>
                 <Ionicons name="chevron-down" size={14} color="#94a3b8" />
               </TouchableOpacity>
@@ -121,7 +133,7 @@ export default function IndexScreen() {
             <View className="flex-row items-center gap-2 bg-slate-900 border border-slate-700 px-4 py-2 rounded-xl">
               <Ionicons name="person-circle" size={18} color="#818cf8" />
               <Text className="text-white font-bold text-xs">
-                {currentRole.type === 'HQ Admin' ? 'HQ Admin' : `${currentRole.store?.name} Manager`}
+                {currentRole?.type === 'HQ Admin' ? 'HQ Admin' : `${currentRole?.store?.name} Manager`}
               </Text>
             </View>
           )}
@@ -129,7 +141,7 @@ export default function IndexScreen() {
 
         {/* Responsive Desktop Tab Filters */}
         <View className="flex-row bg-[#020617] p-1.5 rounded-2xl border border-slate-800/80 overflow-hidden">
-          {currentRole.type === 'HQ Admin' ? (
+          {currentRole?.type === 'HQ Admin' ? (
             <>
               <TouchableOpacity 
                 className={`px-3 py-2 rounded-xl flex-row items-center gap-1.5 ${activeTab === 'fulfill' ? 'bg-indigo-600' : 'bg-transparent'}`}
@@ -259,13 +271,13 @@ export default function IndexScreen() {
 
         {activeTab === 'pos' && (
           <View className="max-w-[720px] mx-auto w-full">
-            <StorePOS key={`pos-${refreshTrigger}`} storeName={currentRole.store?.name || ''} />
+            <StorePOS key={`pos-${refreshTrigger}`} storeName={currentRole?.store?.name || ''} />
           </View>
         )}
 
         {activeTab === 'wastage' && (
           <View className="max-w-[720px] mx-auto w-full">
-            <StoreWastage key={`wastage-${refreshTrigger}`} storeName={currentRole.store?.name || ''} />
+            <StoreWastage key={`wastage-${refreshTrigger}`} storeName={currentRole?.store?.name || ''} />
           </View>
         )}
 
@@ -281,13 +293,13 @@ export default function IndexScreen() {
           </View>
         )}
 
-        {activeTab === 'order' && currentRole.type === 'Store Manager' && (
+        {activeTab === 'order' && currentRole?.type === 'Store Manager' && (
           <View className="w-full">
-            <StoreOrderPortal key={`order-${refreshTrigger}`} currentStore={currentRole.store || null} />
+            <StoreOrderPortal key={`order-${refreshTrigger}`} currentStore={currentRole?.store || null} />
           </View>
         )}
 
-        {activeTab === 'fulfill' && currentRole.type === 'HQ Admin' && (
+        {activeTab === 'fulfill' && currentRole?.type === 'HQ Admin' && (
           <View className="w-full">
             <HQFulfillment key={`fulfill-${refreshTrigger}`} onFulfillSuccess={handleRefreshAll} />
           </View>
